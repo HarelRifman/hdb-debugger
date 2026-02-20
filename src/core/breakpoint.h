@@ -1,6 +1,7 @@
 #ifndef BREAKPOINT_H
 #define BREAKPOINT_H
 
+#include <string>
 #include <cstdint>
 #include <sys/types.h>
 

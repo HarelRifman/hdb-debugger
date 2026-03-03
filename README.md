@@ -2,6 +2,8 @@
 
 A simple x86-64 Linux debugger built with `ptrace`.
 
+> **Note:** This project is **not** related to eBPF. HDB uses the `ptrace` system call to control and inspect a debugged process, which is a traditional Linux debugging mechanism. eBPF is a separate kernel technology used for tracing, networking, and observability.
+
 ## Features
 
 - Set/remove breakpoints at memory addresses

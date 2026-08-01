@@ -6,7 +6,7 @@
 
 using namespace std;
 
-Debugger::Debugger(pid_t pid) : child_pid(pid), running(false) {}
+Debugger::Debugger(pid_t pid) : child_pid(pid), running(false), load_bias(0) {}
 
 // Note: No manual cleanup needed! unique_ptr handles it automatically
 
@@ -41,8 +41,11 @@ void Debugger::wait_for_signal() {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, child_pid, nullptr, &regs);
     
-    // RIP points to instruction AFTER INT3, so subtract 1 to get breakpoint address
-    uintptr_t bp_addr = regs.rip - 1;
+    // RIP points to instruction AFTER INT3 (runtime address); subtract 1 to
+    // land on the breakpoint, then strip the load bias to get back to the
+    // static address the breakpoint is keyed by.
+    uintptr_t bp_addr_runtime = regs.rip - 1;
+    uintptr_t bp_addr = bp_addr_runtime - load_bias;
     if (breakpoints.count(bp_addr) > 0) {
         cout << "Breakpoint hit at 0x" << hex << bp_addr << endl;
         breakpoints[bp_addr]->handle_hit();
@@ -63,7 +66,9 @@ void Debugger::add_breakpoint(uintptr_t addr) {
         cout << "Breakpoint already exists at 0x" << hex << addr << endl;
         return;
     }
-    breakpoints[addr] = make_unique<Breakpoint>(addr, child_pid);
+    // `addr` is a static address; the actual byte we patch in the child's
+    // memory lives at addr + load_bias (identity when the binary isn't PIE).
+    breakpoints[addr] = make_unique<Breakpoint>(addr + load_bias, child_pid);
     breakpoints[addr]->enable();
 }
 

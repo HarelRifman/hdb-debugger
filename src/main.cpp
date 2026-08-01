@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "core/debugger.h"
+#include "core/elf_loader.h"
 #include "registry/command_registry.h"
 #include "registry/command_factory.h"
 
@@ -35,9 +36,16 @@ void run_target(char* program, char* argv[]) {
     exit(1);
 }
 
-void run_debugger(Debugger& debugger, CommandRegistry& registry) {
+void run_debugger(Debugger& debugger, CommandRegistry& registry, const string& program_path) {
     int status;
     waitpid(debugger.get_pid(), &status, 0);
+
+    // The child is stopped right after execve() has loaded it (but before
+    // it has run any instructions), so /proc/[pid]/maps already reflects
+    // where the kernel actually placed it -- exactly what we need to
+    // compute the PIE load bias.
+    debugger.set_load_bias(compute_load_bias(debugger.get_pid(), program_path));
+
     cout << "Debugger attached. Type 'help' for commands." << endl;
 
     string line;
@@ -86,7 +94,7 @@ int main(int argc, char* argv[]) {
     // Factory creates all commands - registry owns them
     CommandFactory::create_and_register(registry);
     
-    run_debugger(debugger, registry);
+    run_debugger(debugger, registry, argv[1]);
 
     return 0;
 }
